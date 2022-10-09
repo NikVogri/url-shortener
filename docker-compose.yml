@@ -1,0 +1,24 @@
+version: "3"
+
+services:
+    redirect-service:
+        build:
+            context: ./
+            dockerfile: ./Dockerfile
+        environment:
+            DB_CONN_STR: "postgres://postgres:postgres@postgres-database:5432/redirect?sslmode=disable"
+        ports:
+            - "8000:8000" # Change to desired port for PROD
+
+    postgres-database:
+        image: postgres:14.5-alpine
+        command: -c ssl=off
+        restart: always
+        environment:
+            POSTGRES_USER: "postgres"
+            POSTGRES_PASSWORD: "postgres"
+            POSTGRES_DB: "redirect"
+        ports:
+            - "5432:5432"
+        volumes:
+            - ./db-data/postgres/:/var/lib/postgresql/data/

@@ -1,8 +1,6 @@
-FROM golang:1.19.1-alpine
+FROM golang:1.19.1-alpine AS builder
 
 WORKDIR /app
-
-ENV PORT=3000
 
 COPY go.mod .
 COPY go.sum .
@@ -11,8 +9,13 @@ RUN go mod download
 
 COPY . .
 
-RUN go build
+RUN go build -o urlShortener
 
-EXPOSE 3000
+# Create multi-stage build to reduce size
+FROM alpine:3.16.2
 
-CMD ["./url-shortener"]
+WORKDIR /app
+
+COPY --from=builder /app .
+
+CMD ["./urlShortener"]
