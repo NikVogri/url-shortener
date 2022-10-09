@@ -2,10 +2,9 @@ package database
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
-	"strconv"
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -21,31 +20,52 @@ type RecordItem struct {
 type Db struct{ *sql.DB }
 
 func Connect(connStr string) *Db {
-	fmt.Println("Connecting to the database")
-	c, er := sql.Open("postgres", connStr)
+	count := 0
 
-	if er != nil {
-		log.Fatal(er)
+	for {
+		conn, e := openConnection(connStr)
+
+		if e != nil {
+			log.Println(e.Error())
+			count++
+		} else {
+			fmt.Println("Successfully connected to the database!")
+
+			db := &Db{conn}
+			db.createInitialTable()
+
+			return db
+		}
+
+		if count > 5 {
+			log.Fatal("Could not connect to Postgres database.")
+		}
+
+		time.Sleep(5 * time.Second)
 	}
+}
 
-	r, e := c.Exec("SELECT 1 + 1 = 2")
+func openConnection(connStr string) (*sql.DB, error) {
+	conn, e := sql.Open("postgres", connStr)
 
 	if e != nil {
-		log.Fatal(e)
+		return nil, e
 	}
 
-	rows, _ := r.RowsAffected()
-	fmt.Println("Test query succeeded: " + strconv.Itoa(int(rows)))
+	e = conn.Ping()
 
-	return &Db{c}
+	if e != nil {
+		return nil, e
+	}
+
+	return conn, nil
 }
 
 func (db *Db) FindRecordById(id string) (ri *RecordItem, e error) {
 	stmt, e := db.Prepare("SELECT * FROM urls WHERE id = $1")
 
 	if e != nil {
-		fmt.Println(e.Error())
-		return nil, errors.New("could prepare statement")
+		return nil, e
 	}
 
 	defer stmt.Close()
@@ -54,8 +74,7 @@ func (db *Db) FindRecordById(id string) (ri *RecordItem, e error) {
 	e = stmt.QueryRow(id).Scan(&ri.Id, &ri.OriginalUrl, &ri.Clicks, &ri.Duration, &ri.CreatedTimestamp)
 
 	if e != nil {
-		fmt.Println(e.Error())
-		return nil, errors.New("could prepare statement: ")
+		return nil, e
 	}
 
 	return ri, nil
@@ -65,8 +84,7 @@ func (db *Db) AddRecord(fi *RecordItem) error {
 	stmt, e := db.Prepare("INSERT INTO urls(id, url, clicks, duration, created_timestamp) VALUES($1, $2, $3, $4, $5)")
 
 	if e != nil {
-		fmt.Println(e.Error())
-		return errors.New("could not prepare statement")
+		return e
 	}
 
 	defer stmt.Close()
@@ -74,8 +92,7 @@ func (db *Db) AddRecord(fi *RecordItem) error {
 	r, er := stmt.Query(fi.Id, fi.OriginalUrl, fi.Clicks, fi.Duration, fi.CreatedTimestamp)
 
 	if er != nil {
-		fmt.Println(e.Error())
-		return errors.New("could not insert item into db")
+		return e
 	}
 
 	r.Close()
@@ -86,8 +103,7 @@ func (db *Db) IncrementClick(id string) error {
 	stmt, e := db.Prepare("UPDATE urls SET clicks = clicks + 1 WHERE id = $1")
 
 	if e != nil {
-		fmt.Println(e.Error())
-		return errors.New("could not prepare statement")
+		return e
 	}
 
 	defer stmt.Close()
@@ -95,9 +111,23 @@ func (db *Db) IncrementClick(id string) error {
 	_, e = stmt.Exec(id)
 
 	if e != nil {
-		fmt.Println(e.Error())
-		return errors.New("could update item in db")
+		return e
 	}
 
 	return nil
+}
+
+func (db *Db) createInitialTable() {
+	query := "CREATE TABLE IF NOT EXISTS urls ("
+	query += "id text PRIMARY KEY, "
+	query += "url text NOT NULL, "
+	query += "clicks integer NOT NULL, "
+	query += "duration bigint NOT NULL, "
+	query += "created_timestamp bigint NOT NULL);"
+
+	_, e := db.Exec(query)
+
+	if e != nil {
+		log.Panic("Could not create initial table: " + e.Error())
+	}
 }

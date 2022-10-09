@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	PORT int = 3000
+	PORT string = "8000"
 )
 
 type AddUrlBody struct {
@@ -35,22 +35,14 @@ func main() {
 	defer db.Close()
 
 	// init server
-	app := server.Create()
+	server := server.Create()
 
 	// register handlers
-	app.HandleFunc("/add", handleAddUrl)
-	app.HandleFunc("/", handleRedirect)
-
-	// assign port, if not provided in env. fallback to default port
-	port := PORT
-
-	if os.Getenv("PORT") != "" {
-		v, _ := strconv.Atoi(os.Getenv("PORT"))
-		port = v
-	}
+	server.HandleFunc("/add", handleAddUrl)
+	server.HandleFunc("/", handleRedirect)
 
 	// start listening to requests
-	server.Listen(port, app)
+	server.Listen(PORT)
 }
 
 func handleRedirect(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +116,7 @@ func handleAddUrl(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if er != nil {
-		fmt.Println(e.Error())
+		fmt.Println(er.Error())
 		http.Error(w, "Something went wrong on our end", http.StatusInternalServerError)
 		return
 	}

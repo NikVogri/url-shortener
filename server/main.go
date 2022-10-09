@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 )
 
 type Server struct{ *http.ServeMux }
@@ -14,10 +13,9 @@ func Create() *Server {
 	return &Server{s}
 }
 
-func Listen(p int, s *Server) {
-	ps := strconv.Itoa(p)
-	fmt.Printf("Server starting on port %v", ps)
-	e := http.ListenAndServe(":"+ps, s)
+func (s *Server) Listen(port string) {
+	fmt.Printf("Server starting on port %v", port)
+	e := http.ListenAndServe(":"+port, s)
 
 	if e != nil {
 		fmt.Print("An error occured during server startup", e)
